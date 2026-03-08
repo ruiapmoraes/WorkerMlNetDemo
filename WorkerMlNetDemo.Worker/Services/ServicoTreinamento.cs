@@ -54,7 +54,7 @@ public sealed class ServicoTreinamento
 
         _logger.LogInformation("CSV não encontrado. Gerando arquivo fake em: {CaminhoCsv}", caminhoCsv);
 
-        var dados = GerarDadosFake(1000);
+        var dados = GerarDadosFake(2000);
 
         using var writer = new StreamWriter(caminhoCsv, false);
         writer.WriteLine("DistanciaKm,TransitoNivel,Chuva,HoraDoDia,TempoEstimadoMinutos");
