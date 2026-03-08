@@ -1,14 +1,15 @@
 using Microsoft.ML;
 using System.Globalization;
+using WorkerMlNetDemo.Worker.Models;
 
 namespace WorkerMlNetDemo.Worker;
 
-public sealed class Worker : BackgroundService
+public sealed class OldWorker : BackgroundService
 {
-    private readonly ILogger<Worker> _logger;
+    private readonly ILogger<OldWorker> _logger;
     private readonly string _modeloPath = Path.Combine(AppContext.BaseDirectory, "modelo-tempo-rota.zip");
 
-    public Worker(ILogger<Worker> logger)
+    public OldWorker(ILogger<OldWorker> logger)
     {
         _logger = logger;
     }
@@ -31,14 +32,16 @@ public sealed class Worker : BackgroundService
         // 4. Carregar modelo para previsão
         var predictor = CriarPredictionEngine(mlContext);
 
+        var random = new Random();
+
         while (!stoppingToken.IsCancellationRequested)
         {
             var novaEntrada = new DadosRotaEntrada
             {
-                DistanciaKm = 18.5f,
-                TransitoNivel = 7f,
-                Chuva = 1f,
-                HoraDoDia = 18f
+                DistanciaKm = (float)(random.NextDouble() * 30 + 1),
+                TransitoNivel = (float)(random.NextDouble() * 10),
+                Chuva = random.Next(0, 2) == 1 ? 1f : 0f,
+                HoraDoDia = random.Next(0, 24)
             };
 
             var previsao = predictor.Predict(novaEntrada);
