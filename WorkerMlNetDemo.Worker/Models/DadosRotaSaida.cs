@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Text;
 
-namespace WorkerMlNetDemo.Worker;
+namespace WorkerMlNetDemo.Worker.Models;
 
 public sealed class DadosRotaSaida
 {
