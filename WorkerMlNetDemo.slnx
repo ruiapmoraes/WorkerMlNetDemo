@@ -1,3 +1,6 @@
 <Solution>
-  <Project Path="WorkerMlNetDemo.Worker/WorkerMlNetDemo.Worker.csproj" />
+  <Folder Name="/solution-items/" />
+  <Folder Name="/src/">
+    <Project Path="WorkerMlNetDemo.Worker/WorkerMlNetDemo.Worker.csproj" />
+  </Folder>
 </Solution>
