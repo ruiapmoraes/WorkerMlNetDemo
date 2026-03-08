@@ -1,7 +1,9 @@
-﻿using Microsoft.ML;
+﻿using Microsoft.Extensions.Options;
+using Microsoft.ML;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using WorkerMlNetDemo.Worker.Configuration;
 using WorkerMlNetDemo.Worker.Models;
 
 namespace WorkerMlNetDemo.Worker.Services;
@@ -9,26 +11,28 @@ namespace WorkerMlNetDemo.Worker.Services;
 public sealed class ServicoPrevisao
 {
     private readonly ILogger<ServicoPrevisao> _logger;
-    private readonly string _modeloPath;
+    private readonly ModeloOptions _options;
     private readonly MLContext _mlContext;
+
     private PredictionEngine<DadosRotaEntrada, DadosRotaSaida>? _predictionEngine;
 
-    public ServicoPrevisao(ILogger<ServicoPrevisao> logger)
+    public ServicoPrevisao(ILogger<ServicoPrevisao> logger, IOptions<ModeloOptions> options)
     {
-        _logger = logger;
-        _modeloPath = Path.Combine(AppContext.BaseDirectory, "tempo-rota.zip");
+        _logger = logger;        
         _mlContext = new MLContext(seed: 1);
+        _options = options.Value;
     }
 
     public void CarregarModelo()
     {
-        if (!File.Exists(_modeloPath))
-            throw new FileNotFoundException("Modelo não encontrado.", _modeloPath);
+        var caminhoModelo = Path.Combine(AppContext.BaseDirectory, _options.CaminhoArquivo);
+        if (!File.Exists(caminhoModelo))
+            throw new FileNotFoundException("Modelo não encontrado.", caminhoModelo);
 
-        var modelo = _mlContext.Model.Load(_modeloPath, out _);
+        var modelo = _mlContext.Model.Load(caminhoModelo, out _);
         _predictionEngine = _mlContext.Model.CreatePredictionEngine<DadosRotaEntrada, DadosRotaSaida>(modelo);
 
-        _logger.LogInformation("Modelo carregado com sucesso de: {Path}", _modeloPath);
+        _logger.LogInformation("Modelo carregado com sucesso de: {Path}", caminhoModelo);
     }
 
     public DadosRotaSaida Prever(DadosRotaEntrada entrada)

@@ -1,58 +1,66 @@
-﻿using Microsoft.ML;
+﻿using Microsoft.Extensions.Options;
+using Microsoft.ML;
 using System;
 using System.Collections.Generic;
 using System.Text;
+using WorkerMlNetDemo.Worker.Configuration;
 using WorkerMlNetDemo.Worker.Models;
 
 namespace WorkerMlNetDemo.Worker.Services;
 
-/// <summary>
-/// Provides training and persistence functionality for a machine learning model that estimates route times based on
-/// input data.
-/// </summary>
-/// <remarks>This class is sealed and cannot be inherited. It generates synthetic training data and saves the
-/// trained model to a file in the application's base directory. Logging is performed to provide feedback on training
-/// progress and model metrics.</remarks>
-/// <param name="logger">The logger used to record informational messages during model training and saving operations.</param>
-public sealed class ServicoTreinamento(ILogger<ServicoTreinamento> logger)
+public sealed class ServicoTreinamento
 {
-    private readonly ILogger<ServicoTreinamento> _logger = logger;
-    private readonly string _modeloPath = 
-        Path.Combine(AppContext.BaseDirectory, "tempo-rota.zip");    
+    private readonly ILogger<ServicoTreinamento> _logger;
+    private readonly ModeloOptions _options;
+
+    public ServicoTreinamento(
+        ILogger<ServicoTreinamento> logger,
+        IOptions<ModeloOptions> options)
+    {
+        _logger = logger;
+        _options = options.Value;
+    }
+
+    public string ObterCaminhoCompletoModelo()
+    {
+        return Path.Combine(AppContext.BaseDirectory, _options.CaminhoArquivo);
+    }
+
+    public bool ModeloExiste()
+    {
+        return File.Exists(ObterCaminhoCompletoModelo());
+    }
 
     public void TreinarESalvarModelo()
     {
         var mlContext = new MLContext(seed: 1);
 
-        // 1. Gerar dados fakes
         var dadosTreino = GerarDadosFake(500);
-
-        // 2. Treinar modelo
         var dataView = mlContext.Data.LoadFromEnumerable(dadosTreino);
 
-        // 3. Definir pipeline de treinamento
         var pipeline = mlContext.Transforms.Concatenate(
-                           "Features",
-                           nameof(DadosRotaEntrada.DistanciaKm),
-                           nameof(DadosRotaEntrada.TransitoNivel),
-                           nameof(DadosRotaEntrada.Chuva),
-                           nameof(DadosRotaEntrada.HoraDoDia))
-                      .Append(mlContext.Regression.Trainers.Sdca(
-                           labelColumnName: nameof(DadosRotaEntrada.TempoEstimadoMinutos),
-                           featureColumnName: "Features"));
+                            "Features",
+                            nameof(DadosRotaEntrada.DistanciaKm),
+                            nameof(DadosRotaEntrada.TransitoNivel),
+                            nameof(DadosRotaEntrada.Chuva),
+                            nameof(DadosRotaEntrada.HoraDoDia))
+                       .Append(mlContext.Regression.Trainers.Sdca(
+                            labelColumnName: nameof(DadosRotaEntrada.TempoEstimadoMinutos),
+                            featureColumnName: "Features"));
 
-        
         var modelo = pipeline.Fit(dataView);
+
         var previsoes = modelo.Transform(dataView);
-        var metricas = mlContext.Regression.Evaluate(previsoes,
+        var metricas = mlContext.Regression.Evaluate(
+            previsoes,
             labelColumnName: nameof(DadosRotaEntrada.TempoEstimadoMinutos));
 
-        mlContext.Model.Save(modelo, dataView.Schema, _modeloPath);
+        var caminhoModelo = ObterCaminhoCompletoModelo();
+        mlContext.Model.Save(modelo, dataView.Schema, caminhoModelo);
 
-          _logger.LogInformation("Modelo treinado e salvo em: {Path}", _modeloPath);
+        _logger.LogInformation("Modelo treinado e salvo em: {CaminhoModelo}", caminhoModelo);
         _logger.LogInformation("R²: {R2:F4}", metricas.RSquared);
         _logger.LogInformation("RMSE: {RMSE:F4}", metricas.RootMeanSquaredError);
-
     }
 
     private static List<DadosRotaEntrada> GerarDadosFake(int quantidade)

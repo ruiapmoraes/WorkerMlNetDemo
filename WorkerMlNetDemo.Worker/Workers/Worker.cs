@@ -26,7 +26,17 @@ public sealed class Worker : BackgroundService
     {
         _logger.LogInformation("Worker iniciado em: {Time}", DateTimeOffset.Now);
 
-        _servicoTreinamento.TreinarESalvarModelo();
+        if (!_servicoTreinamento.ModeloExiste())
+        {
+            _logger.LogInformation("Modelo não encontrado. Iniciando treinamento...");
+            _servicoTreinamento.TreinarESalvarModelo();
+        }
+        else
+        {
+            _logger.LogInformation("Modelo já existente. Treinamento não será executado.");
+        }
+
+        //_servicoTreinamento.TreinarESalvarModelo();
         _servicoPrevisao.CarregarModelo();
 
         var random = new Random();
