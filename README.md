@@ -15,7 +15,7 @@ Este projeto demonstra um pipeline simples de Machine Learning utilizando .NET, 
 
 ## Tecnologias utilizadas
 
-- .NET 8
+- .NET 10
 - C#
 - Worker Service
 - ML.NET
