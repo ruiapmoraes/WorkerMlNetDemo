@@ -2,6 +2,7 @@
 using Microsoft.ML;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 using WorkerMlNetDemo.Worker.Configuration;
 using WorkerMlNetDemo.Worker.Models;
@@ -23,7 +24,12 @@ public sealed class ServicoTreinamento
 
     public string ObterCaminhoCompletoModelo()
     {
-        return Path.Combine(AppContext.BaseDirectory, _options.CaminhoArquivo);
+        return Path.Combine(AppContext.BaseDirectory, _options.CaminhoArquivoModelo);
+    }
+
+    public string ObterCaminhoCompletoCsv()
+    {
+        return Path.Combine(AppContext.BaseDirectory, _options.CaminhoArquivoCsv);
     }
 
     public bool ModeloExiste()
@@ -31,12 +37,54 @@ public sealed class ServicoTreinamento
         return File.Exists(ObterCaminhoCompletoModelo());
     }
 
+    public bool CsvExiste()
+    {
+        return File.Exists(ObterCaminhoCompletoCsv());
+    }
+
+    public void GarantirCsv()
+    {
+        var caminhoCsv = ObterCaminhoCompletoCsv();
+
+        if (CsvExiste())
+        {
+            _logger.LogInformation("CSV já existe em: {CaminhoCsv}", caminhoCsv);
+            return;
+        }
+
+        _logger.LogInformation("CSV não encontrado. Gerando arquivo fake em: {CaminhoCsv}", caminhoCsv);
+
+        var dados = GerarDadosFake(1000);
+
+        using var writer = new StreamWriter(caminhoCsv, false);
+        writer.WriteLine("DistanciaKm,TransitoNivel,Chuva,HoraDoDia,TempoEstimadoMinutos");
+
+        foreach (var item in dados)
+        {
+            writer.WriteLine(
+                string.Join(",",
+                    item.DistanciaKm.ToString(CultureInfo.InvariantCulture),
+                    item.TransitoNivel.ToString(CultureInfo.InvariantCulture),
+                    item.Chuva.ToString(CultureInfo.InvariantCulture),
+                    item.HoraDoDia.ToString(CultureInfo.InvariantCulture),
+                    item.TempoEstimadoMinutos.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        _logger.LogInformation("CSV gerado com sucesso.");
+    }
+
     public void TreinarESalvarModelo()
     {
-        var mlContext = new MLContext(seed: 1);
+        GarantirCsv();
 
-        var dadosTreino = GerarDadosFake(500);
-        var dataView = mlContext.Data.LoadFromEnumerable(dadosTreino);
+        var mlContext = new MLContext(seed: 1);
+        var caminhoCsv = ObterCaminhoCompletoCsv();
+        var caminhoModelo = ObterCaminhoCompletoModelo();
+
+        var dataView = mlContext.Data.LoadFromTextFile<DadosRotaEntrada>(
+            path: caminhoCsv,
+            hasHeader: true,
+            separatorChar: ',');
 
         var pipeline = mlContext.Transforms.Concatenate(
                             "Features",
@@ -55,10 +103,9 @@ public sealed class ServicoTreinamento
             previsoes,
             labelColumnName: nameof(DadosRotaEntrada.TempoEstimadoMinutos));
 
-        var caminhoModelo = ObterCaminhoCompletoModelo();
         mlContext.Model.Save(modelo, dataView.Schema, caminhoModelo);
 
-        _logger.LogInformation("Modelo treinado e salvo em: {CaminhoModelo}", caminhoModelo);
+        _logger.LogInformation("Modelo treinado a partir do CSV e salvo em: {CaminhoModelo}", caminhoModelo);
         _logger.LogInformation("R²: {R2:F4}", metricas.RSquared);
         _logger.LogInformation("RMSE: {RMSE:F4}", metricas.RootMeanSquaredError);
     }
